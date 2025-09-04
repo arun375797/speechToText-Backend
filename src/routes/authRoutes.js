@@ -11,7 +11,7 @@ router.get(
   passport.authenticate("google", {
     failureRedirect: `${process.env.CLIENT_ORIGIN}/`, // back to login page if failed
   }),
-  (_req, res) => {
+  (req, res) => {
     // After successful Google login → send to React dashboard
     res.redirect(`${process.env.CLIENT_ORIGIN}/home`);
   }
