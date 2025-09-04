@@ -1,6 +1,6 @@
 import { createServer } from "http";
 import app from "./src/app.js";
-
+import cors from "cors";
 const PORT = process.env.PORT || 5000;
 
 const server = createServer(app);
