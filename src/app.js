@@ -49,11 +49,6 @@ app.use(cors({
   credentials: true,
 }));
 
-// Ensure all CORS preflights succeed
-// app.options("*", cors({
-//   origin: allowed,
-//   credentials: true,
-// }));
 
 // ------------------------------------------------------------------
 // Sessions (use Mongo store in production for persistence)
