@@ -3,6 +3,9 @@ import express from "express";
 import cors from "cors";
 import session from 'express-session';
 import MongoStore from 'connect-mongo';
+import passport from 'passport';
+import authRoutes from './src/routes/authRoutes.js';
+import './src/config/passport.js';  // Make sure this file exists with passport configuration
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -36,6 +39,9 @@ app.use(session({
     maxAge: 24 * 60 * 60 * 1000 // 24 hours
   }
 }));
+
+// Mount the auth routes
+app.use('/auth', authRoutes);
 
 // Create and start server
 const server = createServer(app);
