@@ -1,12 +1,17 @@
 import { createServer } from "http";
-import app from "./src/app.js";
+import express from "express";
 import cors from "cors";
 import session from 'express-session';
+
+const app = express();
 const PORT = process.env.PORT || 5000;
 
 // Configure middlewares before creating server
 app.use(cors({
-  origin: "https://your-frontend-render-url.onrender.com",
+  origin: [
+    "https://your-frontend-render-url.onrender.com",
+    process.env.FRONTEND_URL
+  ],
   credentials: true
 }));
 
