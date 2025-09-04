@@ -1,60 +1,79 @@
-import dotenv from "dotenv";
-dotenv.config(); 
+// app.js
+import "dotenv/config";
 import express from "express";
 import cors from "cors";
-import passport from "passport";
 import session from "express-session";
+import MongoStore from "connect-mongo";
+import passport from "passport";
 import multer from "multer";
 
-import path from "path";
-
-import "./config/db.js";                  // init Mongo connection
-import sessionConfig from "./config/session.js";
-import configurePassport from "./config/passport.js";
+import "./config/db.js";
+import "./config/passport.js"; // must set up strategies & serialize/deserialize
 
 import authRoutes from "./routes/authRoutes.js";
 import transcriptionRoutes from "./routes/transcriptionRoutes.js";
-import userRoutes from "./routes/userRoutes.js";
 
-import { requireEnv } from "./utils/env.js";
+// ---- envs you actually use ----
+const {
+  NODE_ENV,
+  MONGO_URI,
+  SESSION_SECRET,
+  CLIENT_ORIGIN,        // prod frontend (Render)
+  CLIENT_ORIGIN_DEV,    // local frontend
+} = process.env;
 
-const storage = multer.diskStorage({
-  destination: (_req, _file, cb) => cb(null, "uploads"),
-  filename: (_req, file, cb) => {
-    // keep the extension (e.g., .m4a)
-    const safe = file.originalname.replace(/\s+/g, "_");
-    cb(null, `${Date.now()}_${safe}`);
-  },
-});
-requireEnv([
-  "MONGO_URI",
-  "SESSION_SECRET",
-  "GOOGLE_CLIENT_ID",
-  "GOOGLE_CLIENT_SECRET",
-  "CLIENT_ORIGIN",
-]);
+const isProd = NODE_ENV === "production";
 
 const app = express();
-const upload = multer({ storage });
 
-// CORS & JSON
-app.use(cors({ origin: process.env.CLIENT_ORIGIN, credentials: true }));
+// Required for secure cookies behind Render’s proxy
+app.set("trust proxy", 1);
+
+// Body parsing
 app.use(express.json());
 
-// Session + Passport
-app.use(session(sessionConfig));
-configurePassport(passport);
+// CORS: allow both local & prod frontends
+const allowed = [CLIENT_ORIGIN, CLIENT_ORIGIN_DEV].filter(Boolean);
+app.use(cors({
+  origin(origin, cb) {
+    if (!origin) return cb(null, true);               // e.g. curl/Postman
+    if (allowed.includes(origin)) return cb(null, true);
+    return cb(new Error(`CORS blocked: ${origin}`));
+  },
+  credentials: true,
+}));
+
+// Sessions (Mongo store in prod)
+app.use(session({
+  name: "sid",
+  secret: SESSION_SECRET,
+  resave: false,
+  saveUninitialized: false,
+  store: isProd ? MongoStore.create({ mongoUrl: MONGO_URI }) : undefined,
+  cookie: {
+    secure: isProd,                         // HTTPS only in prod
+    sameSite: isProd ? "none" : "lax",      // cross-site cookies in prod
+    httpOnly: true,
+    maxAge: 24 * 60 * 60 * 1000,
+  },
+}));
+
+// Passport
 app.use(passport.initialize());
 app.use(passport.session());
 
-// Healthcheck (optional)
+// Multer (for uploads)
+const storage = multer.diskStorage({
+  destination: (_req, _file, cb) => cb(null, "uploads"),
+  filename: (_req, file, cb) => cb(null, `${Date.now()}_${file.originalname.replace(/\s+/g, "_")}`),
+});
+const upload = multer({ storage });
+
+// Healthcheck
 app.get("/health", (_req, res) => res.json({ ok: true }));
 
-// Routes (prefix)
+// Routes
 app.use("/auth", authRoutes);
-app.use("/api", transcriptionRoutes(upload));
-
-
-app.use("/api", transcriptionRoutes(upload));
+app.use("/api", transcriptionRoutes(upload)); // <-- only once
 
 export default app;
