@@ -13,6 +13,7 @@ import "./config/passport.js"; // strategies + serialize/deserialize
 
 import authRoutes from "./routes/authRoutes.js";
 import transcriptionRoutes from "./routes/transcriptionRoutes.js";
+import { sessionCleanup } from "./middlewares/sessionCleanup.js";
 
 // ------------------------------------------------------------------
 // Ensure an uploads directory exists on every boot (fresh Render image)
@@ -65,6 +66,9 @@ app.use(session({
     maxAge: 24 * 60 * 60 * 1000,     // 1 day
   },
 }));
+
+// Session cleanup middleware (before passport)
+app.use(sessionCleanup);
 
 // Passport
 app.use(passport.initialize());
