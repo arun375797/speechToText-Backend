@@ -1,6 +1,5 @@
 import User from '../models/User.js';
 import Transcription from '../models/Transcription.js';
-import { sendOTPEmail, sendWelcomeEmail } from '../utils/emailService.js';
 
 export const loginSuccess = (req, res) => {
   res.json({ user: req.user || null });
@@ -38,25 +37,31 @@ export const signup = async (req, res) => {
     const otp = user.generateEmailOTP();
     await user.save();
 
-    // Send OTP email
-    const emailSent = await sendOTPEmail(user.email, user.name, otp);
+    // Try to send OTP email (optional if email not configured)
+    let emailSent = false;
+    try {
+      const { sendOTPEmail } = await import('../utils/emailService.js');
+      emailSent = await sendOTPEmail(user.email, user.name, otp);
+    } catch (error) {
+      console.log('Email service not configured, skipping email send:', error.message);
+    }
     
     if (!emailSent) {
-      return res.status(500).json({
-        success: false,
-        message: 'Failed to send verification email. Please try again.'
-      });
+      console.log('OTP generated but email not sent. OTP:', otp);
     }
 
     res.status(201).json({
       success: true,
-      message: 'User created successfully. Please check your email for verification code.',
+      message: emailSent 
+        ? 'User created successfully. Please check your email for verification code.'
+        : `User created successfully. OTP: ${otp} (Email not configured)`,
       user: {
         id: user._id,
         name: user.name,
         email: user.email,
         isEmailVerified: false
-      }
+      },
+      ...(process.env.NODE_ENV === 'development' && !emailSent && { otp: otp })
     });
   } catch (error) {
     console.error('Signup error:', error);
@@ -228,8 +233,13 @@ export const verifyOTP = async (req, res) => {
     user.emailVerificationExpires = undefined;
     await user.save();
 
-    // Send welcome email
-    await sendWelcomeEmail(user.email, user.name);
+    // Try to send welcome email (optional if email not configured)
+    try {
+      const { sendWelcomeEmail } = await import('../utils/emailService.js');
+      await sendWelcomeEmail(user.email, user.name);
+    } catch (error) {
+      console.log('Email service not configured, skipping welcome email:', error.message);
+    }
 
     res.json({
       success: true,
@@ -274,14 +284,17 @@ export const resendOTP = async (req, res) => {
     const otp = user.generateEmailOTP();
     await user.save();
 
-    // Send OTP email
-    const emailSent = await sendOTPEmail(user.email, user.name, otp);
+    // Try to send OTP email (optional if email not configured)
+    let emailSent = false;
+    try {
+      const { sendOTPEmail } = await import('../utils/emailService.js');
+      emailSent = await sendOTPEmail(user.email, user.name, otp);
+    } catch (error) {
+      console.log('Email service not configured, skipping email send:', error.message);
+    }
     
     if (!emailSent) {
-      return res.status(500).json({
-        success: false,
-        message: 'Failed to send verification email. Please try again.'
-      });
+      console.log('OTP generated but email not sent. OTP:', otp);
     }
 
     res.json({

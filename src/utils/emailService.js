@@ -2,6 +2,10 @@ import nodemailer from 'nodemailer';
 
 // Create transporter (using Gmail for now, but can be configured for other providers)
 const createTransporter = () => {
+  if (!process.env.EMAIL_USER || !process.env.EMAIL_PASS) {
+    throw new Error('Email configuration missing. Please set EMAIL_USER and EMAIL_PASS environment variables.');
+  }
+  
   return nodemailer.createTransporter({
     service: 'gmail',
     auth: {
