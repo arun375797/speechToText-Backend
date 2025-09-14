@@ -1,9 +1,18 @@
 import { Router } from "express";
 import passport from "passport";
-import { loginSuccess, logout } from "../controllers/authController.js";
+import { 
+  loginSuccess, 
+  logout, 
+  signup, 
+  login, 
+  getProfile, 
+  updateProfile 
+} from "../controllers/authController.js";
+import { authRequired } from "../middlewares/authRequired.js";
 
 const router = Router();
 
+// Google OAuth routes
 router.get("/google", passport.authenticate("google", { scope: ["profile", "email"] }));
 
 router.get(
@@ -16,7 +25,21 @@ router.get(
   }
 );
 
+// Local auth routes
+router.post("/signup", signup);
+router.post("/login", 
+  passport.authenticate("local", { 
+    failureMessage: true 
+  }), 
+  login
+);
+
+// Session and logout
 router.get("/session", loginSuccess);
 router.post("/logout", logout);
+
+// Profile routes
+router.get("/profile", authRequired, getProfile);
+router.put("/profile", authRequired, updateProfile);
 
 export default router;

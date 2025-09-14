@@ -2,11 +2,16 @@ import mongoose from "mongoose";
 
 const transcriptionSchema = new mongoose.Schema(
   {
-    user: { type: mongoose.Schema.Types.ObjectId, ref: "User", index: true },
+    userId: { type: mongoose.Schema.Types.ObjectId, ref: "User", index: true },
+    user: { type: mongoose.Schema.Types.ObjectId, ref: "User", index: true }, // Keep for backward compatibility
     filename: String,
     transcription: String,   // <-- text content
+    text: String,            // Alternative field name
     duration: Number,        // minutes
     cost: Number,            // INR (or whatever you store)
+    language: String,        // Language used for transcription
+    fileSize: Number,        // File size in bytes
+    processingTime: Number,  // Processing time in seconds
   },
   { timestamps: true }
 );

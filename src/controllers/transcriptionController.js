@@ -78,11 +78,16 @@ export const createTranscription = async (req, res, next) => {
 
     // 4) Save to DB
     const doc = await Transcription.create({
-      user: req.user?._id,
+      userId: req.user?._id,
+      user: req.user?._id, // Keep for backward compatibility
       filename: req.file.originalname,
       transcription: text,
+      text: text, // Alternative field name
       duration: billableMinutes, // store minutes
       cost: costINR,
+      language: language || 'auto',
+      fileSize: req.file.size,
+      processingTime: Math.round((Date.now() - req.file.timestamp) / 1000),
     });
 
     // 5) Cleanup temp file
@@ -108,14 +113,18 @@ export const createTranscription = async (req, res, next) => {
 };
 
 export const myTranscriptions = async (req, res) => {
-  const docs = await Transcription.find({ user: req.user._id })
+  const docs = await Transcription.find({ 
+    $or: [{ user: req.user._id }, { userId: req.user._id }]
+  })
     .sort({ createdAt: -1 })
     .select("-__v");
   res.json(docs);
 };
 
 export const listHistory = async (req, res) => {
-  const docs = await Transcription.find({ user: req.user._id })
+  const docs = await Transcription.find({ 
+    $or: [{ user: req.user._id }, { userId: req.user._id }]
+  })
     .sort({ createdAt: -1 })
     .select("-__v");
   res.json(docs);
@@ -127,8 +136,10 @@ export const saveHistory = async (req, res) => {
     return res.status(400).json({ error: "transcription is required" });
   }
   const doc = await Transcription.create({
-    user: req.user._id,
+    userId: req.user._id,
+    user: req.user._id, // Keep for backward compatibility
     transcription,
+    text: transcription, // Alternative field name
     duration: 0,
     cost: 0,
   });
@@ -139,7 +150,7 @@ export const deleteHistory = async (req, res) => {
   const { id } = req.params;
   const doc = await Transcription.findOneAndDelete({
     _id: id,
-    user: req.user._id,
+    $or: [{ user: req.user._id }, { userId: req.user._id }]
   });
   if (!doc) return res.status(404).json({ error: "Not found" });
   res.json({ ok: true });
