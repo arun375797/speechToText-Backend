@@ -1,5 +1,6 @@
 import User from '../models/User.js';
 import Transcription from '../models/Transcription.js';
+import { sendOTPEmail, sendWelcomeEmail } from '../utils/emailService.js';
 
 export const loginSuccess = (req, res) => {
   res.json({ user: req.user || null });
@@ -19,9 +20,9 @@ export const signup = async (req, res) => {
     // Check if user already exists
     const existingUser = await User.findOne({ email: email.toLowerCase() });
     if (existingUser) {
-      return res.status(400).json({ 
-        success: false, 
-        message: 'User already exists with this email' 
+      return res.status(400).json({
+        success: false,
+        message: 'User already exists with this email'
       });
     }
 
@@ -33,15 +34,28 @@ export const signup = async (req, res) => {
       isEmailVerified: false
     });
 
+    // Generate OTP
+    const otp = user.generateEmailOTP();
     await user.save();
+
+    // Send OTP email
+    const emailSent = await sendOTPEmail(user.email, user.name, otp);
+    
+    if (!emailSent) {
+      return res.status(500).json({
+        success: false,
+        message: 'Failed to send verification email. Please try again.'
+      });
+    }
 
     res.status(201).json({
       success: true,
-      message: 'User created successfully',
+      message: 'User created successfully. Please check your email for verification code.',
       user: {
         id: user._id,
         name: user.name,
-        email: user.email
+        email: user.email,
+        isEmailVerified: false
       }
     });
   } catch (error) {
@@ -54,6 +68,21 @@ export const signup = async (req, res) => {
 };
 
 export const login = (req, res) => {
+  // Check if user's email is verified
+  if (!req.user.isEmailVerified) {
+    return res.status(403).json({
+      success: false,
+      message: 'Please verify your email before logging in. Check your inbox for the verification code.',
+      requiresVerification: true,
+      user: {
+        id: req.user._id,
+        name: req.user.name,
+        email: req.user.email,
+        isEmailVerified: false
+      }
+    });
+  }
+
   res.json({
     success: true,
     message: 'Login successful',
@@ -161,6 +190,109 @@ export const updateProfile = async (req, res) => {
     res.status(500).json({
       success: false,
       message: 'Failed to update profile'
+    });
+  }
+};
+
+// Verify OTP
+export const verifyOTP = async (req, res) => {
+  try {
+    const { email, otp } = req.body;
+
+    const user = await User.findOne({ email: email.toLowerCase() });
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: 'User not found'
+      });
+    }
+
+    if (user.isEmailVerified) {
+      return res.status(400).json({
+        success: false,
+        message: 'Email already verified'
+      });
+    }
+
+    const isValidOTP = user.verifyEmailOTP(otp);
+    if (!isValidOTP) {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid or expired OTP'
+      });
+    }
+
+    // Mark email as verified
+    user.isEmailVerified = true;
+    user.emailVerificationOTP = undefined;
+    user.emailVerificationExpires = undefined;
+    await user.save();
+
+    // Send welcome email
+    await sendWelcomeEmail(user.email, user.name);
+
+    res.json({
+      success: true,
+      message: 'Email verified successfully! Welcome to SpeechAI!',
+      user: {
+        id: user._id,
+        name: user.name,
+        email: user.email,
+        isEmailVerified: true
+      }
+    });
+  } catch (error) {
+    console.error('Verify OTP error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to verify OTP'
+    });
+  }
+};
+
+// Resend OTP
+export const resendOTP = async (req, res) => {
+  try {
+    const { email } = req.body;
+
+    const user = await User.findOne({ email: email.toLowerCase() });
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: 'User not found'
+      });
+    }
+
+    if (user.isEmailVerified) {
+      return res.status(400).json({
+        success: false,
+        message: 'Email already verified'
+      });
+    }
+
+    // Generate new OTP
+    const otp = user.generateEmailOTP();
+    await user.save();
+
+    // Send OTP email
+    const emailSent = await sendOTPEmail(user.email, user.name, otp);
+    
+    if (!emailSent) {
+      return res.status(500).json({
+        success: false,
+        message: 'Failed to send verification email. Please try again.'
+      });
+    }
+
+    res.json({
+      success: true,
+      message: 'OTP sent successfully. Please check your email.'
+    });
+  } catch (error) {
+    console.error('Resend OTP error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to resend OTP'
     });
   }
 };

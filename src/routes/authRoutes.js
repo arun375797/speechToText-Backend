@@ -6,7 +6,9 @@ import {
   signup, 
   login, 
   getProfile, 
-  updateProfile 
+  updateProfile,
+  verifyOTP,
+  resendOTP
 } from "../controllers/authController.js";
 import { authRequired } from "../middlewares/authRequired.js";
 
@@ -41,5 +43,9 @@ router.post("/logout", logout);
 // Profile routes
 router.get("/profile", authRequired, getProfile);
 router.put("/profile", authRequired, updateProfile);
+
+// OTP routes
+router.post("/verify-otp", verifyOTP);
+router.post("/resend-otp", resendOTP);
 
 export default router;

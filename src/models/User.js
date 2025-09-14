@@ -18,6 +18,8 @@ const userSchema = new mongoose.Schema(
     },
     picture: String,
     isEmailVerified: { type: Boolean, default: false },
+    emailVerificationOTP: String,
+    emailVerificationExpires: Date,
     lastLogin: Date,
   },
   { timestamps: true }
@@ -40,6 +42,27 @@ userSchema.pre('save', async function(next) {
 userSchema.methods.comparePassword = async function(candidatePassword) {
   if (!this.password) return false;
   return bcrypt.compare(candidatePassword, this.password);
+};
+
+// Generate OTP for email verification
+userSchema.methods.generateEmailOTP = function() {
+  const otp = Math.floor(100000 + Math.random() * 900000).toString(); // 6-digit OTP
+  this.emailVerificationOTP = otp;
+  this.emailVerificationExpires = new Date(Date.now() + 10 * 60 * 1000); // 10 minutes
+  return otp;
+};
+
+// Verify OTP
+userSchema.methods.verifyEmailOTP = function(otp) {
+  if (!this.emailVerificationOTP || !this.emailVerificationExpires) {
+    return false;
+  }
+  
+  if (new Date() > this.emailVerificationExpires) {
+    return false; // OTP expired
+  }
+  
+  return this.emailVerificationOTP === otp;
 };
 
 export default mongoose.models.User || mongoose.model("User", userSchema);
