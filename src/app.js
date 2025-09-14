@@ -78,8 +78,11 @@ app.use(passport.session());
 // Multer (for uploads) - saving to ./uploads which we ensured exists
 const storage = multer.diskStorage({
   destination: (_req, _file, cb) => cb(null, "uploads"),
-  filename: (_req, file, cb) =>
-    cb(null, `${Date.now()}_${file.originalname.replace(/\s+/g, "_")}`),
+  filename: (_req, file, cb) => {
+    const timestamp = Date.now();
+    file.timestamp = timestamp; // Add timestamp to file object
+    cb(null, `${timestamp}_${file.originalname.replace(/\s+/g, "_")}`);
+  },
 });
 const upload = multer({ storage });
 

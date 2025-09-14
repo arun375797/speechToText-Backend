@@ -77,17 +77,26 @@ export const createTranscription = async (req, res, next) => {
     );
 
     // 4) Save to DB
+    const startTime = req.file.timestamp || Date.now();
+    const processingTime = Math.round((Date.now() - startTime) / 1000);
+    
+    // Ensure all numeric values are valid
+    const safeProcessingTime = isNaN(processingTime) || processingTime < 0 ? 0 : processingTime;
+    const safeFileSize = isNaN(req.file.size) ? 0 : req.file.size;
+    const safeDuration = isNaN(billableMinutes) ? 0 : billableMinutes;
+    const safeCost = isNaN(costINR) ? 0 : costINR;
+    
     const doc = await Transcription.create({
       userId: req.user?._id,
       user: req.user?._id, // Keep for backward compatibility
       filename: req.file.originalname,
       transcription: text,
       text: text, // Alternative field name
-      duration: billableMinutes, // store minutes
-      cost: costINR,
+      duration: safeDuration, // store minutes
+      cost: safeCost,
       language: language || 'auto',
-      fileSize: req.file.size,
-      processingTime: Math.round((Date.now() - req.file.timestamp) / 1000),
+      fileSize: safeFileSize,
+      processingTime: safeProcessingTime,
     });
 
     // 5) Cleanup temp file
